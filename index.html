@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>学搭子 · Demo 1.0（长视频自学的 AI 伴学陪练）</title>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f7f9fc;
+    --accent:#2563eb; --accent-tint:#eff5ff; --ok:#0f766e; --warn:#b45309; --bad:#b91c1c;
+    --amber-tint:#fff8ec;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+       color:var(--ink);background:var(--bg);font-size:14px;-webkit-font-smoothing:antialiased}
+  header{background:#fff;border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:700}
+  header .sub{font-size:12px;color:var(--muted)}
+  .chip{font-size:11.5px;border-radius:999px;padding:3px 10px;border:1px solid var(--line);background:#fff;color:var(--muted);white-space:nowrap}
+  .chip.on{background:var(--accent-tint);border-color:#bfd4fb;color:#1d4ed8}
+  .chip.warn{background:var(--amber-tint);border-color:#e6c9a0;color:var(--warn)}
+  .steps{display:flex;gap:4px;align-items:center;margin-left:auto;flex-wrap:wrap}
+  .step{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px dashed var(--line);color:#94a3b8}
+  .step.done{background:#f0fdf4;border-color:#bbf7d0;color:var(--ok);border-style:solid}
+  .step.now{background:var(--accent);border-color:var(--accent);color:#fff;border-style:solid;font-weight:600}
+  main{display:grid;grid-template-columns:1.15fr 1fr;gap:14px;padding:14px 18px 18px;align-items:start}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .card h2{font-size:13px;margin:0 0 10px;color:var(--muted);font-weight:600;letter-spacing:.2px}
+  /* 播放区 */
+  .src{font-size:12.5px;color:var(--muted);margin-bottom:10px;line-height:1.6}
+  .src b{color:var(--ink)}
+  .bar{height:8px;background:#eef2f7;border-radius:99px;position:relative;overflow:hidden;margin:8px 0 6px}
+  .bar > i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);width:0%}
+  .bar .seg{position:absolute;top:0;bottom:0;background:#dbe6fb;border-left:1px solid #fff}
+  .time{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .script{height:330px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fcfdff}
+  .line{font-size:13px;line-height:1.85;padding:2px 6px;border-radius:6px;cursor:pointer}
+  .line .t{color:#94a3b8;font-size:11px;margin-right:8px;font-variant-numeric:tabular-nums}
+  .line.cur{background:var(--accent-tint);box-shadow:inset 3px 0 0 var(--accent)}
+  .line.past{color:#94a3b8}
+  .ctrls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  button{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:9px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink)}
+  button:hover{border-color:#c9d6ea}
+  button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.ghost{color:var(--muted)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .task{font-size:12.5px;background:var(--amber-tint);border:1px dashed #e6c9a0;color:var(--warn);border-radius:10px;padding:8px 11px;margin-bottom:10px;line-height:1.6}
+  /* 侧栏 */
+  aside{display:flex;flex-direction:column;gap:12px}
+  .ai-note{font-size:11.5px;color:var(--muted);background:#f8fafc;border:1px solid #eef2f7;border-radius:9px;padding:7px 10px;line-height:1.6}
+  .ai-note b{color:#475569}
+  .bubble{border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.7;margin-bottom:9px;border:1px solid var(--line)}
+  .bubble.ai{background:#fff}
+  .bubble.stu{background:var(--accent-tint);border-color:#bfd4fb;margin-left:26px}
+  .bubble.warn{background:var(--amber-tint);border-color:#e6c9a0}
+  .bubble.ok{background:#f0fdf4;border-color:#bbf7d0}
+  .bubble.calm{background:#f8fafc;color:var(--muted)}
+  .who{font-size:11px;color:#94a3b8;display:block;margin-bottom:3px}
+  textarea,input[type=text]{width:100%;font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);
+    border-radius:9px;resize:vertical;font-family:inherit}
+  textarea:focus,input:focus{outline:2px solid #cfe0ff;border-color:#bfd4fb}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .q{font-size:13.5px;line-height:1.8;margin:2px 0 10px}
+  .q .blank{color:var(--accent);font-weight:700}
+  .meta{font-size:11.5px;color:var(--muted)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;line-height:1.7}
+  .kv b{font-variant-numeric:tabular-nums}
+  .meter{font-size:11.5px;color:var(--muted);line-height:1.7}
+  details{border-top:1px dashed var(--line);padding-top:9px;margin-top:4px}
+  summary{cursor:pointer;font-size:12px;color:var(--muted)}
+  pre{background:#0f172a;color:#e2e8f0;font-size:11px;line-height:1.6;border-radius:9px;padding:10px;max-height:210px;overflow:auto}
+  .foot{font-size:11px;color:#94a3b8;padding:0 18px 18px;line-height:1.6}
+  @media (max-width:1080px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>学搭子 · Demo 1.0</h1>
+  <span class="sub">Learning Goal：学生能<strong>在没有 AI 的情况下</strong>把一条长视频学完学实（先说一遍 → 自测 → 定位薄弱点）</span>
+  <span class="chip" id="levelChip">支持档位 L3</span>
+  <div class="steps" id="steps">
+    <span class="step" data-s="1">① 学习片段</span>
+    <span class="step" data-s="2">② 你先说一遍</span>
+    <span class="step" data-s="3">③ 检索小测</span>
+    <span class="step" data-s="4">④ 中断</span>
+    <span class="step" data-s="5">⑤ 返回冷启动</span>
+    <span class="step" data-s="6">⑥ 学习报告</span>
+  </div>
+</header>
+
+<main>
+  <!-- 左：视频/讲稿区 -->
+  <section class="card">
+    <h2>学生的真实学习任务</h2>
+    <div class="src" id="srcLine">载入中…</div>
+    <div class="bar" id="bar"><i id="barFill"></i></div>
+    <div class="time"><span id="tNow">00:00</span><span id="tSeg">第 1 / 1 段</span><span id="tEnd">00:00</span></div>
+    <div class="script" id="script"></div>
+    <div class="ctrls">
+      <button class="pri" id="btnPlay">▶ 播放（模拟 8×）</button>
+      <button id="btnInterrupt">⚡ 我被打断了（模拟消息）</button>
+      <button id="btnReturn" disabled>↩ 我回来了</button>
+      <button class="ghost" id="btnHelp">我需要提示</button>
+    </div>
+    <div class="task" style="margin-top:10px">
+      <b>演示脚本（课堂 90 秒走完一轮）：</b>播放 → 在"先说一遍"里输入你的理解 → 看 AI 判读并给出支持 →
+      做 2 题小测 → 点"我被打断了" → 点"我回来了"做两题冷启动 → 看学习报告。
+      <b>真实模式</b>下这里嵌入 B站播放器，字幕由 <code>bili_pipeline.py</code> 从视频真实字幕生成。
+    </div>
+  </section>
+
+  <!-- 右：伴学侧栏 -->
+  <aside>
+    <div class="card">
+      <h2>AI 的角色与边界（常驻）</h2>
+      <div class="ai-note">
+        <b>AI 现在做：</b><span id="aiDo"></span><br>
+        <b>AI 不做：</b>不先给完整解释 · 不替你判断"这段你懂了" · 不替你决定跳过 · 不锁进度、不催促
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>伴学侧栏</h2>
+      <div id="panel"></div>
+    </div>
+
+    <div class="card">
+      <h2>过程数据（研究用埋点，实时）</h2>
+      <div class="kv" id="stats"></div>
+      <details>
+        <summary>事件日志（可导出 JSON）</summary>
+        <pre id="logBox">[]</pre>
+        <div class="row"><button id="btnExport">导出 JSON 日志</button></div>
+      </details>
+    </div>
+  </aside>
+</main>
+<div class="foot">
+  这是设计型项目的 Demo 1.0：核心互动（判读 → 支持强度 → 检索小测 → 中断留回路 → 返回冷启动 → 报告）全部真实运行；
+  AI 的语言由内置规则引擎生成，任何人无需密钥即可体验。<br>
+  支持递减规则：连续两段"先说清楚且小测全对" → 档位下降一级（L3 给框架 → L2 只追问 → L1 只在求助时提示 → L0 只出题）。
+</div>
+
+<script>window.SEGMENTS = {"source": {"bvid": "DEMO", "title": "演示讲稿：《高等数学》期末速通 · 导数与微分（示例）", "owner": "演示用（非真实视频）", "duration": 168, "cid": 0}, "note": "演示讲稿（非真实视频）", "segments": [{"index": 1, "start": 0.0, "end": 34.0, "duration": 34.0, "start_hms": "00:00", "end_hms": "00:34", "text": "今天我们来讲导数，先记住一句话：导数是函数在某一点的瞬时变化率。什么叫瞬时？就是在这一点附近取一个很小的增量，让这个增量趋近于零。所以导数的定义写成极限形式：函数增量比上自变量增量，当自变量增量趋近于零时的极限。注意这里有两个前提：函数在这一点连续，而且这个极限要存在。", "sentences": ["今天我们来讲导数，先记住一句话：导数是函数在某一点的瞬时变化率。", "什么叫瞬时？就是在这一点附近取一个很小的增量，让这个增量趋近于零。", "所以导数的定义写成极限形式：函数增量比上自变量增量，当自变量增量趋近于零时的极限。", "注意这里有两个前提：函数在这一点连续，而且这个极限要存在。"], "quiz": [{"type": "blank", "stem": "今天我们来讲导数，先记住一句话：导数是函数在某一点的瞬时＿＿＿＿。", "answer": "变化率", "accept": ["变化率"], "hint": "3 个字", "at": "00:00", "source_sentence": "今天我们来讲导数，先记住一句话：导数是函数在某一点的瞬时变化率。", "score": 3.3}, {"type": "blank", "stem": "什么叫瞬时？就是在这一点附近取一个很小的＿＿＿＿，让这个增量趋近于零。", "answer": "增量", "accept": ["增量"], "hint": "2 个字", "at": "00:00", "source_sentence": "什么叫瞬时？就是在这一点附近取一个很小的增量，让这个增量趋近于零。", "score": 3.3}], "key_points": ["今天我们来讲导数，先记住一句话：导数是函数在某一点的瞬时变化率。", "什么叫瞬时？就是在这一点附近取一个很小的增量，让这个增量趋近于零。"]}, {"index": 2, "start": 34.6, "end": 72.0, "duration": 37.4, "start_hms": "00:34", "end_hms": "01:12", "text": "如果极限存在，我们就说函数在这一点可导；不存在就不可导。可导一定连续，但连续不一定可导，经典反例是绝对值函数在零点。接下来讲几何意义：导数等于曲线在这一点处切线的斜率。", "sentences": ["如果极限存在，我们就说函数在这一点可导；不存在就不可导。", "可导一定连续，但连续不一定可导，经典反例是绝对值函数在零点。", "接下来讲几何意义：导数等于曲线在这一点处切线的斜率。"], "quiz": [{"type": "blank", "stem": "可导一定连续，但连续不一定可导，经典＿＿＿＿是绝对值函数在零点。", "answer": "反例", "accept": ["反例"], "hint": "2 个字", "at": "00:34", "source_sentence": "可导一定连续，但连续不一定可导，经典反例是绝对值函数在零点。", "score": 3.3}, {"type": "blank", "stem": "接下来讲几何意义：导数等于＿＿＿＿在这一点处切线的斜率。", "answer": "曲线", "accept": ["曲线"], "hint": "2 个字", "at": "00:34", "source_sentence": "接下来讲几何意义：导数等于曲线在这一点处切线的斜率。", "score": 3.3}], "key_points": ["如果极限存在，我们就说函数在这一点可导；不存在就不可导。", "可导一定连续，但连续不一定可导，经典反例是绝对值函数在零点。"]}, {"index": 3, "start": 72.6, "end": 118.0, "duration": 45.4, "start_hms": "01:12", "end_hms": "01:58", "text": "斜率大于零说明函数在这附近递增，斜率小于零说明递减，等于零的点可能是极值点。求导法则有三条最常用：和差、乘积、商的求导法则。乘积法则容易记错，正确形式是前导后不导加上前不导后导，不是两个导数直接相乘。", "sentences": ["斜率大于零说明函数在这附近递增，斜率小于零说明递减，等于零的点可能是极值点。", "求导法则有三条最常用：和差、乘积、商的求导法则。", "乘积法则容易记错，正确形式是前导后不导加上前不导后导，不是两个导数直接相乘。"], "quiz": [{"type": "blank", "stem": "斜率大于零说明函数在这附近递增，斜率小于零说明递减，等于零的点可能是＿＿＿＿点。", "answer": "极值", "accept": ["极值"], "hint": "2 个字", "at": "01:12", "source_sentence": "斜率大于零说明函数在这附近递增，斜率小于零说明递减，等于零的点可能是极值点。", "score": 3.3}, {"type": "blank", "stem": "求导＿＿＿＿有三条最常用：和差、乘积、商的求导法则。", "answer": "法则", "accept": ["法则"], "hint": "2 个字", "at": "01:12", "source_sentence": "求导法则有三条最常用：和差、乘积、商的求导法则。", "score": 3.3}], "key_points": ["斜率大于零说明函数在这附近递增，斜率小于零说明递减，等于零的点可能是极值点。", "求导法则有三条最常用：和差、乘积、商的求导法则。"]}, {"index": 4, "start": 118.6, "end": 168.0, "duration": 49.4, "start_hms": "01:58", "end_hms": "02:48", "text": "复合函数要用链式法则，外层导数乘以内层导数，一层一层往里剥。常见函数的导数要背下来：正弦是余弦，指数函数的导数还是它自己。最后提醒：期末卷子里导数题占分很高，先把定义和链式法则练熟。", "sentences": ["复合函数要用链式法则，外层导数乘以内层导数，一层一层往里剥。", "常见函数的导数要背下来：正弦是余弦，指数函数的导数还是它自己。", "最后提醒：期末卷子里导数题占分很高，先把定义和链式法则练熟。"], "quiz": [{"type": "blank", "stem": "复合函数要用＿＿＿＿，外层导数乘以内层导数，一层一层往里剥。", "answer": "链式法则", "accept": ["链式法则"], "hint": "4 个字", "at": "01:58", "source_sentence": "复合函数要用链式法则，外层导数乘以内层导数，一层一层往里剥。", "score": 4.2}, {"type": "blank", "stem": "常见函数的导数要背下来：正弦是余弦，＿＿＿＿的导数还是它自己。", "answer": "指数函数", "accept": ["指数函数"], "hint": "4 个字", "at": "01:58", "source_sentence": "常见函数的导数要背下来：正弦是余弦，指数函数的导数还是它自己。", "score": 4.2}], "key_points": ["复合函数要用链式法则，外层导数乘以内层导数，一层一层往里剥。", "常见函数的导数要背下来：正弦是余弦，指数函数的导数还是它自己。"]}], "generated_by": "bili_pipeline.py", "schema": "xuedazi.segments/1"};</script>
+<script>
+"use strict";
+/* ============ 数据 ============ */
+const DATA = (window.SEGMENTS && window.SEGMENTS.segments) ? window.SEGMENTS : {source:{title:"（缺少 segments.js，使用内置兜底数据）"},segments:[
+  {index:1,start:0,end:40,start_hms:"00:00",end_hms:"00:40",text:"导数是函数在某一点的瞬时变化率。",
+   sentences:["导数是函数在某一点的瞬时变化率。","如果极限存在，我们就说函数在这一点可导。"],
+   quiz:[{stem:"导数是函数在某一点的＿＿＿＿。",answer:"瞬时变化率",hint:"5 个字",at:"00:00"}]},
+  {index:2,start:40,end:80,start_hms:"00:40",end_hms:"01:20",text:"复合函数要用链式法则。",
+   sentences:["复合函数要用链式法则。","乘积法则容易记错。"],
+   quiz:[{stem:"复合函数要用＿＿＿＿。",answer:"链式法则",hint:"4 个字",at:"00:40"}]}
+]};
+const SEGS = DATA.segments;
+const LEVELS = {3:{name:"L3 给框架 + 追问",do:"先追问，并在你卡住时给出思考框架（仍不给答案）"},
+                2:{name:"L2 只追问",do:"只追问，不再主动给框架"},
+                1:{name:"L1 只在求助时提示",do:"你不点“我需要提示”就不介入"},
+                0:{name:"L0 只出题",do:"只出小测，不问、不提示（模拟撤出 AI）"}};
+
+/* ============ 状态 ============ */
+const W = {
+  segIdx:0, phase:"learn", level:3, playing:false, speed:8, t:0, timer:null,
+  explain:"", judged:null, quiz:null, wrongList:[], pending:null, streak:0,
+  interrupted:false, tInterruptAt:null, resumeDelays:[], resFirstCorrect:[],
+  stats:{segDone:0,qTotal:0,qCorrect:0,explainCount:0,skipCount:0,interrupts:0,helpClicks:0,restates:0},
+  events:[]
+};
+const $ = id => document.getElementById(id);
+const now = () => Date.now();
+const hms = s => { s=Math.max(0,Math.floor(s)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
+const log = (type, data={}) => { W.events.push(Object.assign({n:W.events.length+1,t:new Date().toISOString(),type},data)); $("logBox").textContent = JSON.stringify(W.events.slice(-14),null,1); };
+
+/* ============ 时间轴/逐句高亮 ============ */
+const allLines = [];
+SEGS.forEach(s => s.sentences.forEach((txt,i) => allLines.push({seg:s.index, idx:i, txt, t:s.start + i*Math.max(3,(s.end-s.start)/Math.max(1,s.sentences.length))})));
+let lineCursor = 0;
+function renderScript(){
+  $("script").innerHTML = allLines.map((l,i) =>
+    `<div class="line" data-i="${i}"><span class="t">${hms(l.t)}</span>${l.txt}</div>`).join("");
+  $("script").querySelectorAll(".line").forEach(d => d.onclick = () => { lineCursor = +d.dataset.i; paintScript(); });
+  paintScript();
+}
+function paintScript(){
+  const nodes = $("script").querySelectorAll(".line");
+  nodes.forEach((d,i) => { d.className = "line" + (i===lineCursor ? " cur" : (i<lineCursor ? " past" : "")); });
+  const cur = nodes[lineCursor]; if (cur) cur.scrollIntoView({block:"nearest"});
+}
+
+/* ============ 播放（模拟） ============ */
+function renderBar(){
+  const seg = SEGS[W.segIdx] || SEGS[0];
+  const total = SEGS[SEGS.length-1].end || 1;
+  $("barFill").style.width = Math.min(100, W.t/total*100) + "%";
+  $("tNow").textContent = hms(W.t);
+  $("tEnd").textContent = hms(total);
+  $("tSeg").textContent = `第 ${seg.index} / ${SEGS.length} 段 · ${seg.start_hms}–${seg.end_hms}`;
+}
+function play(){
+  if (W.playing) return;
+  W.playing = true; $("btnPlay").textContent = "⏸ 暂停";
+  log("play",{seg:SEGS[W.segIdx].index,at:hms(W.t)});
+  W.timer = setInterval(() => {
+    W.t += W.speed;
+    const seg = SEGS[W.segIdx];
+    lineCursor = Math.min(allLines.length-1, allLines.findIndex(l => l.t > W.t));
+    if (lineCursor < 0) lineCursor = allLines.length-1;
+    paintScript(); renderBar();
+    if (W.t >= seg.end) { pause(); askExplain(); }
+  }, 500);
+}
+function pause(){ W.playing=false; clearInterval(W.timer); $("btnPlay").textContent = "▶ 播放（模拟 8×）"; }
+function gotoSegment(i){
+  W.segIdx = Math.min(i, SEGS.length-1); W.t = SEGS[W.segIdx].start;
+  lineCursor = allLines.findIndex(l => l.seg === SEGS[W.segIdx].index);
+  if (lineCursor < 0) lineCursor = 0;
+  paintScript(); renderBar(); setPhase("learn");
+}
+
+/* ============ 判读（真实运行的核心） ============ */
+function ngrams(s,n=4){ const out=new Set(); const t=s.replace(/[\s，。！？；：、（）“”"']/g,""); for(let i=0;i+n<=t.length;i++) out.add(t.slice(i,i+n)); return out; }
+function overlapRatio(a,b){
+  const A=ngrams(a), B=ngrams(b); if(!A.size||!B.size) return 0;
+  let hit=0; A.forEach(g=>{ if(B.has(g)) hit++; });
+  return hit/A.size;
+}
+function judge(text, seg){
+  const t = (text||"").trim();
+  const len = t.replace(/\s/g,"").length;
+  const causal = /(因为|所以|是由于|导致|取决于|意味着|说明|如果|一旦|=)/.test(t);
+  const own = /(我觉得|我认为|我的理解|可以理解为|也就是说|换句话说|举个例子|比如)/.test(t);
+  const ov = overlapRatio(t, seg.text);
+  let verdict = "ok", why = [];
+  if (len < 12) { verdict="short"; why.push(`只写了 ${len} 字，还看不出你的想法`); }
+  if (ov > 0.62 && !own) { verdict = (verdict==="short"?"short":"verbatim"); why.push(`与原文重合度 ${(ov*100).toFixed(0)}%，基本是复述`); }
+  if (!causal && verdict==="ok") { why.push("没有出现“为什么成立”的因果表述"); }
+  if (own) why.push("出现了你自己的措辞");
+  return {len, causal, own, ov:+(ov).toFixed(2), verdict, why};
+}
+function supportFor(verdict){
+  if (W.level <= 0) return {kind:"none", text:"（L0：AI 不介入，只出题）"};
+  if (verdict === "short")  return {kind:"frame", text:"别急，用三句话试试：① 它是什么？② 为什么成立？③ 用在哪一步？（我先不给答案）"};
+  if (verdict === "verbatim") return {kind:"prompt", text:"换个说法：不要复述原话，用你自己的话讲清楚这一步<strong>为什么</strong>成立。"};
+  return {kind:"confirm", text:"可以，你抓住了它成立的条件。继续做 2 题小测。"};
+}
+
+/* ============ 面板渲染 ============ */
+function setPhase(p){ W.phase = p; paintSteps(); render(); }
+function paintSteps(){
+  const map = {learn:"1", explain:"2", judged:"2", quiz:"3", interrupted:"4", coldstart:"5", report:"6"};
+  const cur = map[W.phase] || "1";
+  $("steps").querySelectorAll(".step").forEach(s => {
+    s.className = "step" + (s.dataset.s === cur ? " now" : (+s.dataset.s < +cur ? " done" : ""));
+  });
+  $("levelChip").textContent = "支持档位 " + LEVELS[W.level].name.split(" ")[0] + "（" + LEVELS[W.level].name.split(" ").slice(1).join(" ") + "）";
+  $("aiDo").textContent = LEVELS[W.level].do;
+}
+function renderStats(){
+  const s = W.stats;
+  const avg = W.resumeDelays.length ? Math.round(W.resumeDelays.reduce((a,b)=>a+b,0)/W.resumeDelays.length) : null;
+  const rf = W.resFirstCorrect.length ? Math.round(W.resFirstCorrect.filter(Boolean).length/W.resFirstCorrect.length*100) : null;
+  $("stats").innerHTML = [
+    ["看完片段", s.segDone + " / " + SEGS.length],
+    ["先说一遍", s.explainCount + " 次（复述 " + s.restates + " 次）"],
+    ["小测", s.qTotal + " 题，正确率 " + (s.qTotal? Math.round(s.qCorrect/s.qTotal*100):0) + "%"],
+    ["错题清单", W.wrongList.length + " 条"],
+    ["中断次数", s.interrupts + " 次"],
+    ["平均恢复延迟", avg==null ? "—" : avg + " 秒"],
+    ["恢复后首题正确率", rf==null ? "—" : rf + "%"],
+    ["跳过提示 / 求助", s.skipCount + " / " + s.helpClicks + " 次"]
+  ].map(([k,v]) => `<span>${k}</span><b>${v}</b>`).join("");
+}
+function bubble(who, html, cls=""){ return `<div class="bubble ${cls}"><span class="who">${who}</span>${html}</div>`; }
+
+function render(){
+  renderStats(); renderBar();
+  const seg = SEGS[W.segIdx], P = $("panel");
+  let h = "";
+
+  if (W.phase === "learn") {
+    h += bubble("AI", `第 <b>${seg.index}</b> 段（${seg.start_hms}–${seg.end_hms}）。先看这一段的讲解，看完我会让你<b>先自己说一遍</b>。`, "calm");
+    h += `<div class="row"><button class="pri" id="btnNext1">看完了，进入"我先说"</button>
+          <button class="ghost" id="btnSkipSeg">跳过这一段</button></div>`;
+  } else if (W.phase === "explain") {
+    h += bubble("AI", (W.level>=3 ? "先别翻笔记：用你自己的话说说，这一段的<b>核心结论</b>是什么？它<b>为什么</b>成立？" : "这一段的要点你说说看。"));
+    h += `<textarea id="inpExplain" rows="3" placeholder="用你自己的话写下来（不是抄原句）…"></textarea>`;
+    h += `<div class="row"><button class="pri" id="btnExplain">提交我的理解</button>
+          <button class="ghost" id="btnNoIdea">我不会，直接给我框架</button></div>`;
+  } else if (W.phase === "judged") {
+    const j = W.judged, sup = W.support;
+    h += bubble("学生", W.explain.replace(/\n/g," "), "stu");
+    h += bubble("AI 判读", `判读依据：长度 ${j.len} 字 · 与原文重合 ${(j.ov*100).toFixed(0)}% · 因果表述 ${j.causal?"有":"无"}<br>` +
+                j.why.map(x=>"· "+x).join("<br>"), "calm");
+    h += bubble("AI", sup.text, sup.kind==="confirm" ? "ok" : "warn");
+    h += `<div class="row"><button class="pri" id="btnQuiz">开始 2 题小测</button></div>`;
+  } else if (W.phase === "quiz" || W.phase === "coldstart") {
+    const q = W.quiz.items[W.quiz.i];
+    const tag = W.phase==="coldstart" ? "冷启动（回到学习前先回忆）" : "片段小测";
+    h += bubble("AI", `<b>${tag}</b> 第 ${W.quiz.i+1}/${W.quiz.items.length} 题。我只告诉你对错和它在哪，不解释。`, "calm");
+    h += `<div class="q">${q.stem.replace(/＿+/g,'<span class="blank">＿＿＿＿</span>')}</div>`;
+    h += `<input type="text" id="inpAns" placeholder="填写这个空（${q.hint}）…">`;
+    h += `<div class="row"><button class="pri" id="btnAns">提交</button>
+          <button class="ghost" id="btnSkipQ">跳过</button>
+          <button class="ghost" id="btnHintQ">提示</button></div>`;
+    if (W.quiz.feedback) h += W.quiz.feedback;
+  } else if (W.phase === "interrupted") {
+    h += bubble("AI", `⚡ 已记录一次中断。我把你<b>没答完的那一题</b>和进度留在这里——这就是那条"未闭合的回路"。<br>
+      回来时你只要答完它，就等于接着学了。`, "warn");
+    h += `<div class="kv"><span>未闭合的回路</span><b>第 ${seg.index} 段 · 还剩 ${W.pending?1:0} 题未答</b></div>`;
+    h += `<div class="q" style="margin-top:8px">${W.pending ? W.pending.stem.replace(/＿+/g,'<span class="blank">＿＿＿＿</span>') : "（当前段已答完，回路里只留了进度）"}</div>`;
+    h += `<div class="row"><button class="pri" id="btnBack">↩ 我回来了（先做两题冷启动）</button>
+          <button class="ghost" id="btnNever">今天不学了</button></div>`;
+  } else if (W.phase === "segdone") {
+    const L = W.lastSeg || {idx:seg.index,n:0,correct:0,leveled:false};
+    h += bubble("AI", `第 <b>${L.idx}</b> 段结束：<b>${L.correct}/${L.n}</b> 题答对。` +
+      (L.leveled ? `<br>这一段你先说清楚了、小测也全对，我把支持降一档 → <b>${LEVELS[W.level].name}</b>。` : ""),
+      L.leveled ? "ok" : "calm");
+    if (W.wrongList.length) {
+      h += `<div class="ai-note"><b>错题清单（${W.wrongList.length} 条）</b><br>` +
+        W.wrongList.slice(-3).map(w => `· 第 ${w.seg} 段 ${w.at}｜${w.stem.replace(/＿+/g,"＿＿")}`).join("<br>") +
+        `<br>点回讲稿对应的时间点重看一遍，再进下一段。</div>`;
+    }
+    h += `<div class="row"><button class="pri" id="btnNextSeg">进入下一段</button>
+          <button class="ghost" id="btnReplay">再看一遍这一段</button></div>`;
+  } else if (W.phase === "report") {
+    const s = W.stats;
+    const avg = W.resumeDelays.length ? Math.round(W.resumeDelays.reduce((a,b)=>a+b,0)/W.resumeDelays.length) : null;
+    const rf = W.resFirstCorrect.length ? Math.round(W.resFirstCorrect.filter(Boolean).length/W.resFirstCorrect.length*100) : null;
+    h += bubble("AI", "这一轮结束了。下面是<b>过程</b>和<b>结果</b>分开看的学习报告——当堂分数只是过程，真正算数的是撤掉我之后你还会不会。", "ok");
+    h += `<div class="kv">
+      <span>看完片段</span><b>${s.segDone} / ${SEGS.length} 段</b>
+      <span>先说一遍</span><b>${s.explainCount} 次（其中 ${s.restates} 次被判为复述）</b>
+      <span>检索小测</span><b>${s.qTotal} 题，正确率 ${s.qTotal?Math.round(s.qCorrect/s.qTotal*100):0}%</b>
+      <span>错题清单</span><b>${W.wrongList.length} 条</b>
+      <span>中断 / 恢复</span><b>${s.interrupts} 次${s.interrupts?`（平均恢复延迟 ${avg==null?"—":avg+" 秒"}）`:""}</b>
+      <span>恢复后首题正确率</span><b>${rf==null?"—":rf+"%"}</b>
+      <span>当前支持档位</span><b>${LEVELS[W.level].name}</b>
+    </div>`;
+    h += `<div class="task" style="margin-top:10px">
+      <b>撤掉 AI 以后，你也该这样做：</b>自己把视频切成小段 → 每段先合上屏幕说一遍 → 用自测找出没记住的地方 → 打断回来后先回忆再继续。
+      <br><b>下一步的证据：</b>一周后无 AI 的延迟测验与迁移题；在一条新视频上是否还会自发"先说一遍 + 自测"。
+    </div>`;
+    h += `<div class="row"><button id="btnAgain">再来一轮（换一段）</button></div>`;
+  }
+  P.innerHTML = h;
+  bind();
+}
+
+/* ============ 交互绑定 ============ */
+function bind(){
+  const on = (id,fn) => { const e=$(id); if(e) e.onclick = fn; };
+
+  on("btnNext1", () => { askExplain(); });
+  on("btnNextSeg", () => nextSegment());
+  on("btnReplay", () => { log("replay_segment",{seg:SEGS[W.segIdx].index}); gotoSegment(W.segIdx); });
+  on("btnSkipSeg", () => { log("skip_segment",{seg:SEGS[W.segIdx].index}); W.stats.skipCount++; nextSegment(); });
+  on("btnPlay", () => W.playing ? pause() : play());
+  on("btnInterrupt", doInterrupt);
+  on("btnReturn", doReturn);
+  on("btnBack", doReturn);
+  on("btnNever", () => { log("abandon",{seg:SEGS[W.segIdx].index,note:"学生选择不再回来（真实数据里这一步最关键）"}); $("panel").innerHTML =
+      bubble("AI","好。这条回路我先留着，你想回来时它还在。", "calm"); });
+  on("btnHelp", () => { W.stats.helpClicks++; log("help_request",{seg:SEGS[W.segIdx].index,at:hms(W.t)});
+      alert('（L' + W.level + '）提示：先找出这一段里的关键词，再用它回答三件事——它是什么 / 为什么成立 / 用在哪。'); });
+  on("btnExplain", () => {
+    const txt = ($("inpExplain")||{}).value || "";
+    if (txt.trim().length < 2) { alert("先写一点，哪怕一句话。"); return; }
+    W.explain = txt; W.judged = judge(txt, SEGS[W.segIdx]); W.stats.explainCount++;
+    if (W.judged.verdict === "verbatim") W.stats.restates++;
+    W.support = supportFor(W.judged.verdict);
+    if (W.judged.verdict === "ok") W.streak++; else W.streak = 0;
+    log("explain_submit",{seg:SEGS[W.segIdx].index,judge:W.judged,level:W.level,support:W.support.kind});
+    setPhase("judged");
+  });
+  on("btnNoIdea", () => { W.explain="（我说不出来）"; W.judged={len:0,causal:false,own:false,ov:0,verdict:"short",why:["直接求助"]};
+      W.support = supportFor("short"); W.streak = 0; log("give_up_explain",{seg:SEGS[W.segIdx].index,level:W.level}); setPhase("judged"); });
+  on("btnQuiz", () => startQuiz(SEGS[W.segIdx].quiz.map(q=>Object.assign({},q)), "quiz"));
+  on("btnAns", () => {
+    const ans = (($("inpAns")||{}).value || "").trim();
+    const q = W.quiz.items[W.quiz.i];
+    const norm = s => s.replace(/[\s，。、（）]/g,"");
+    const correct = norm(ans).length>0 && (norm(q.answer).includes(norm(ans)) || norm(ans).includes(norm(q.answer)));
+    gradeAnswer(correct, q, ans);
+  });
+  on("btnSkipQ", () => {
+    W.stats.skipCount++;
+    log("skip_question",{seg:SEGS[W.segIdx].index,kind:W.quiz.kind,q:W.quiz.i});
+    W.quiz.items[W.quiz.i].skipped = true;
+    W.quiz.i++;
+    if (W.quiz.i >= W.quiz.items.length) { W.quiz.feedback = ""; finishQuiz(); return; }
+    W.quiz.feedback = bubble("AI","跳过了。跳过是你真实的自由，我只记录下来。","calm");
+    render();
+  });
+  on("btnHintQ", () => { W.stats.helpClicks++; log("hint_request",{q:W.quiz.i});
+      W.quiz.feedback = bubble("AI","提示：" + (W.quiz.items[W.quiz.i].hint || "想想这段的关键词") + "。","warn"); render(); });
+  on("btnExport", exportJSON);
+  on("btnAgain", () => { W.segIdx = (W.segIdx+1) % SEGS.length; W.phase="learn"; W.quiz=null; W.pending=null; W.explain=""; gotoSegment(W.segIdx); });
+}
+
+/* ============ 流程 ============ */
+function askExplain(){
+  pause();
+  if (W.level <= 0) { startQuiz(SEGS[W.segIdx].quiz.map(q=>Object.assign({},q)), "quiz"); return; }
+  setPhase("explain");
+  log("phase",{name:"explain",seg:SEGS[W.segIdx].index,level:W.level});
+}
+function startQuiz(items, kind){
+  W.quiz = {items: items.slice(0, kind==="coldstart" ? 2 : items.length), i:0, kind, feedback:""};
+  W.quiz.items.forEach(q => { W.stats.qTotal++; });
+  setPhase(kind === "coldstart" ? "coldstart" : "quiz");
+  log("quiz_start",{kind,seg:SEGS[W.segIdx].index,n:W.quiz.items.length});
+}
+function gradeAnswer(correct, q, ans){
+  if (correct) W.stats.qCorrect++;
+  else W.wrongList.push({seg:SEGS[W.segIdx].index, at:q.at, stem:q.stem, answer:q.answer});
+  if (W.quiz.kind === "coldstart" && W.quiz.i === 0) W.resFirstCorrect.push(correct);
+  log("quiz_answer",{kind:W.quiz.kind,seg:SEGS[W.segIdx].index,q:W.quiz.i,ans,correct,expected:q.answer});
+  W.quiz.feedback = bubble("AI", correct
+    ? `✓ 对。它在 <b>${q.at}</b>，回去对得上就说明你记得准。`
+    : `✗ 不对（我不说答案）。这一问在 <b>${q.at}</b>，点回讲稿对应那句看一遍。`, correct ? "ok" : "warn");
+  W.quiz.i++;
+  if (W.quiz.i >= W.quiz.items.length) { finishQuiz(); return; }
+  render();
+}
+function finishQuiz(){
+  const allCorrect = W.quiz.items.every(q => !q.skipped && !W.wrongList.some(w => w.stem === q.stem));
+  if (W.quiz.kind === "coldstart") {
+    W.pending = null;
+    log("coldstart_done",{seg:SEGS[W.segIdx].index});
+    $("btnReturn").disabled = true; W.interrupted = false;
+    setPhase("learn");          // 续播：回到被打断的那一段继续学（真实模式自动续播）
+    return;
+  }
+  // 段内小测完成 → 判是否降档，并先给学生一段小结（否则反馈会被下一段冲掉）
+  const leveled = (allCorrect && W.judged && W.judged.verdict === "ok" && W.level > 0);
+  if (leveled) { W.level--; log("level_down",{to:W.level,reason:"先说清楚 + 小测全对"}); }
+  if (!allCorrect) W.streak = 0;
+  W.stats.segDone++;
+  W.lastSeg = {idx:SEGS[W.segIdx].index, n:W.quiz.items.length,
+               correct:W.quiz.items.filter(q => !q.skipped && !W.wrongList.some(w => w.stem === q.stem)).length,
+               leveled};
+  log("segment_done", W.lastSeg);
+  setPhase("segdone");
+}
+function nextSegment(){
+  if (W.segIdx >= SEGS.length-1) { pause(); setPhase("report"); log("report",{stats:W.stats}); return; }
+  gotoSegment(W.segIdx+1);
+}
+function doInterrupt(){
+  pause();
+  const seg = SEGS[W.segIdx];
+  const pendingQ = (W.quiz && W.quiz.items && W.quiz.items[W.quiz.i]) ? W.quiz.items[W.quiz.i]
+                 : seg.quiz[0];
+  W.pending = pendingQ;
+  W.interrupted = true; W.tInterruptAt = now(); W.stats.interrupts++;
+  $("btnReturn").disabled = false;
+  log("interrupt",{seg:seg.index,at:hms(W.t),pending:pendingQ ? pendingQ.stem : null});
+  setPhase("interrupted");
+}
+function doReturn(){
+  if (!W.tInterruptAt) return;
+  const delay = Math.round((now() - W.tInterruptAt)/1000);
+  W.resumeDelays.push(delay);
+  // 冷启动两题：1 题上一段回顾 + 1 题上次没答完的
+  const prev = SEGS[Math.max(0, W.segIdx-1)].quiz[0];
+  const items = [Object.assign({}, prev), Object.assign({}, W.pending || SEGS[W.segIdx].quiz[0])];
+  log("resume",{after_seconds:delay,seg:SEGS[W.segIdx].index,coldstart:items.length});
+  startQuiz(items, "coldstart");
+}
+function exportJSON(){
+  const payload = {schema:"xuedazi.demo-log/1", generated_at:new Date().toISOString(),
+                   source:DATA.source, note:DATA.note || "", level_final:W.level, stats:W.stats,
+                   wrong_list:W.wrongList, resume_delays_sec:W.resumeDelays, events:W.events};
+  const blob = new Blob([JSON.stringify(payload,null,1)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "xuedazi_demo_log.json"; a.click();
+  log("export_log",{n:W.events.length});
+}
+
+/* ============ 启动 ============ */
+(function init(){
+  $("srcLine").innerHTML = `<b>${(DATA.source||{}).title || ""}</b>　${(DATA.source||{}).owner ? "· " + DATA.source.owner : ""}` +
+      `<br>片段与题目由 <code>bili_pipeline.py</code> 从字幕生成：${SEGS.length} 段 / ${SEGS.reduce((a,s)=>a+(s.quiz||[]).length,0)} 题` +
+      ((DATA.source||{}).bvid && DATA.source.bvid !== "DEMO" ? `　<a href="https://www.bilibili.com/video/${DATA.source.bvid}" target="_blank" rel="noopener">打开原视频</a>` : "");
+  $("btnPlay").onclick = () => W.playing ? pause() : play();
+  $("btnInterrupt").onclick = doInterrupt;
+  $("btnReturn").onclick = doReturn;
+  $("btnHelp").onclick = () => { W.stats.helpClicks++; log("help_request",{at:hms(W.t)}); alert('提示：先找出这一段的关键词，再用它回答三件事——它是什么 / 为什么成立 / 用在哪。'); };
+  renderScript(); renderBar(); paintSteps(); setPhase("learn");
+  log("session_start",{segments:SEGS.length,source:(DATA.source||{}).title});
+})();
+</script>
+</body>
+</html>
